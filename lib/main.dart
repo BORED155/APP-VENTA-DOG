@@ -142,7 +142,6 @@ void aviso(BuildContext c, Object e) {
   final t = switch (e) {
     PostgrestException(:final message) ||
     AuthException(:final message) => message,
-    FunctionException(status: 404) => 'El pago con tarjeta aún no está activado en la tienda. Tu pedido quedó guardado en Pedidos.',
     FunctionException(:final details, :final status) =>
       details is Map && details['error'] != null
           ? '${details['error']}'

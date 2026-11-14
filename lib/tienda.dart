@@ -426,7 +426,7 @@ class _CatalogoState extends State<Catalogo> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  'Envío a domicilio · Paga con tarjeta o transferencia',
+                                  'Envío a domicilio · Paga por transferencia bancaria',
                                   style: t.textTheme.bodyMedium?.copyWith(
                                     color: Colors.white.withValues(alpha: 0.95),
                                   ),
@@ -729,25 +729,17 @@ class CarritoPantalla extends StatefulWidget {
 class _CarritoPantallaState extends State<CarritoPantalla> {
   bool ocupado = false;
 
-  Future<void> _comprar(String metodo) async {
+  Future<void> _comprar() async {
     setState(() => ocupado = true);
     try {
       final id = await sb.rpc(
         'crear_pedido',
-        params: {'items': itemsParaPedido(), 'p_metodo': metodo},
+        params: {'items': itemsParaPedido(), 'p_metodo': 'transferencia'},
       ) as int;
       carrito.value = {};
       if (!mounted) return;
-      if (metodo == 'tarjeta') {
-        await pagarPedido(context, id);
-      } else {
-        final p = await sb
-            .from('pedidos')
-            .select('total')
-            .eq('id', id)
-            .single();
-        if (mounted) await mostrarTransferencia(context, id, p['total']);
-      }
+      final p = await sb.from('pedidos').select('total').eq('id', id).single();
+      if (mounted) await mostrarTransferencia(context, id, p['total']);
       if (mounted)
         Navigator.pushReplacement(
           context,
@@ -881,17 +873,7 @@ class _CarritoPantallaState extends State<CarritoPantalla> {
                           ),
                           const SizedBox(height: 16),
                           FilledButton.icon(
-                            onPressed: ocupado
-                                ? null
-                                : () => _comprar('tarjeta'),
-                            icon: const Icon(Icons.credit_card),
-                            label: const Text('Pagar con tarjeta'),
-                          ),
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
-                            onPressed: ocupado
-                                ? null
-                                : () => _comprar('transferencia'),
+                            onPressed: ocupado ? null : _comprar,
                             icon: const Icon(Icons.account_balance),
                             label: const Text(
                               'Pagar por transferencia bancaria',

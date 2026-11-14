@@ -292,3 +292,7 @@ begin
 end $$;
 revoke execute on function public.importar_pedidos(jsonb) from public, anon;
 grant execute on function public.importar_pedidos(jsonb) to authenticated;
+
+-- 2026-11-14: se quita el pago con tarjeta. Los pedidos pendientes con tarjeta pasan a transferencia
+-- para que el cliente vea los datos de la cuenta y pueda agregar su comprobante.
+update public.pedidos set metodo = 'transferencia' where estado = 'pendiente' and metodo = 'tarjeta';

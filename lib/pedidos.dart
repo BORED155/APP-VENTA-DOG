@@ -6,20 +6,6 @@ import 'main.dart';
 import 'respaldo.dart';
 import 'tienda.dart';
 
-/// Pide a la función "pagar" el enlace de PayPhone y lo abre en el navegador
-/// (PayPhone no permite su formulario dentro de la app).
-Future<void> pagarPedido(BuildContext c, int id) async {
-  try {
-    final r = await sb.functions.invoke('pagar', body: {'pedido_id': id});
-    await launchUrl(
-      Uri.parse(r.data['url']),
-      mode: LaunchMode.externalApplication,
-    );
-  } catch (e) {
-    if (c.mounted) aviso(c, e);
-  }
-}
-
 // shortcut: datos fijos en el código; si cambia la cuenta, editar aquí y recompilar.
 const cuentaNumero = '12005458809';
 const cuentaTexto =
@@ -406,12 +392,6 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
                         : 'Cambiar comprobante',
                   ),
                 ),
-              ),
-            if (p['estado'] == 'pendiente' && p['metodo'] == 'tarjeta')
-              FilledButton.icon(
-                onPressed: () => pagarPedido(context, p['id']),
-                icon: const Icon(Icons.credit_card),
-                label: const Text('Pagar con tarjeta'),
               ),
             if (widget.admin)
               Padding(

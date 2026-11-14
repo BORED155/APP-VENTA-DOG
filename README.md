@@ -1,10 +1,11 @@
 # APP VENTA DOG
 
 Tienda virtual de artículos para perros. Android y Mac (Flutter) + Supabase (cuentas, base de datos, fotos)
-+ PayPhone (pago con tarjeta).
++ pago por transferencia bancaria (el pago con tarjeta PayPhone se quitó el 2026-11-14;
+las funciones `supabase/functions/pagar` y `confirmar` siguen en el repo por si se vuelve a activar).
 
 - Registro obligatorio: correo, contraseña, nombre, teléfono, dirección, ciudad (editable en *Mi perfil*).
-- Catálogo con fotos, carrito, *Pagar con tarjeta*, *Mis pedidos* (se puede reintentar el pago si quedó pendiente).
+- Catálogo con fotos, carrito, *Pagar por transferencia* + número de comprobante, *Mis pedidos*.
 - Cuenta administradora: *Administrar productos* (crear/editar, foto, precio, stock, ocultar) y ve
   **todos** los pedidos con el cliente y su teléfono, y cambia el estado (pendiente → pagado → enviado / cancelado).
 - Seguridad en la base (RLS): un cliente solo ve sus pedidos; solo el admin toca productos; el precio y el total
