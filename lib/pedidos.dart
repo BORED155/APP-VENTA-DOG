@@ -44,7 +44,7 @@ Future<void> mostrarTransferencia(BuildContext c, int id, num total) =>
             const SizedBox(height: 8),
             const Text(
               'Cuando confirmemos el depósito, tu pedido pasará a "pagado" y lo enviaremos. '
-              'Puedes volver a ver estos datos en Pedidos.',
+              'Después pulsa "Agregar comprobante" en Pedidos y escribe el número del comprobante.',
             ),
           ],
         ),
@@ -66,6 +66,31 @@ Future<void> mostrarTransferencia(BuildContext c, int id, num total) =>
         ],
       ),
     );
+
+/// Número para wa.me: solo dígitos y con código de Ecuador (0991234567 → 593991234567).
+String numeroWhatsapp(String tel) {
+  final d = tel.replaceAll(RegExp(r'\D'), '');
+  return d.startsWith('0') ? '593${d.substring(1)}' : d;
+}
+
+/// Enlace de WhatsApp con el aviso al cliente, o null si ese estado no avisa o no hay teléfono.
+Uri? avisoWhatsapp(Map<String, dynamic> p, String estado) {
+  final cliente = p['perfiles'] ?? {};
+  final numero = numeroWhatsapp('${cliente['telefono'] ?? ''}');
+  final hola =
+      'Hola ${cliente['nombre'] ?? ''}, te escribimos de APP VENTA DOG.';
+  final texto = switch (estado) {
+    'pagado' =>
+      '$hola Confirmamos el pago de tu pedido #${p['id']} por ${dinero(p['total'])}. Pronto lo enviaremos.',
+    'enviado' =>
+      '$hola Tu pedido #${p['id']} ya fue enviado a: ${p['direccion']}.',
+    'cancelado' =>
+      '$hola Tu pedido #${p['id']} fue cancelado. Si tienes dudas, responde a este mensaje.',
+    _ => null,
+  };
+  if (texto == null || numero.isEmpty) return null;
+  return Uri.https('wa.me', '/$numero', {'text': texto});
+}
 
 const estados = ['pendiente', 'pagado', 'enviado', 'cancelado'];
 const iconoEstado = {
@@ -142,6 +167,50 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
       },
     ),
   );
+
+  /// El cliente escribe el número del comprobante de su transferencia; lo guarda la base (RPC).
+  Future<void> _agregarComprobante(Map<String, dynamic> p) async {
+    final ctl = TextEditingController(text: p['comprobante'] ?? '');
+    final numero = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Pedido #${p['id']}: comprobante'),
+        content: TextField(
+          controller: ctl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Número de comprobante',
+            helperText: 'El número que te dio el banco al transferir',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, ctl.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (numero == null || numero.isEmpty) return;
+    try {
+      await sb.rpc(
+        'poner_comprobante',
+        params: {'p_id': p['id'], 'p_numero': numero},
+      );
+      _recargar();
+      if (mounted)
+        aviso(
+          context,
+          'Comprobante guardado. Te avisaremos al confirmar el pago.',
+        );
+    } catch (err) {
+      if (mounted) aviso(context, err);
+    }
+  }
 
   Widget _pedido(Map<String, dynamic> p) {
     final fecha = DateTime.parse(p['creado'])
@@ -222,6 +291,11 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
                 '${i['cantidad']} × ${i['nombre']} — ${dinero(i['precio'] * i['cantidad'])}',
               ),
             Text('Entrega: ${p['direccion']}'),
+            if (p['comprobante'] != null)
+              SelectableText(
+                'Comprobante de transferencia: ${p['comprobante']}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             const SizedBox(height: 8),
             if (p['estado'] == 'pendiente' && p['metodo'] == 'transferencia')
               OutlinedButton.icon(
@@ -229,6 +303,21 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
                     mostrarTransferencia(context, p['id'], p['total']),
                 icon: const Icon(Icons.account_balance),
                 label: const Text('Ver datos de transferencia'),
+              ),
+            if (!widget.admin &&
+                p['estado'] == 'pendiente' &&
+                p['metodo'] == 'transferencia')
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: FilledButton.icon(
+                  onPressed: () => _agregarComprobante(p),
+                  icon: const Icon(Icons.receipt_long),
+                  label: Text(
+                    p['comprobante'] == null
+                        ? 'Agregar comprobante'
+                        : 'Cambiar comprobante',
+                  ),
+                ),
               ),
             if (p['estado'] == 'pendiente' && p['metodo'] == 'tarjeta')
               FilledButton.icon(
@@ -274,6 +363,18 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
                                       .update({'estado': e})
                                       .eq('id', p['id']);
                                   _recargar();
+                                  final wa = avisoWhatsapp(p, e);
+                                  if (wa != null) {
+                                    await launchUrl(
+                                      wa,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  } else if (e != 'pendiente' && mounted) {
+                                    aviso(
+                                      context,
+                                      'El cliente no tiene teléfono: no se pudo avisar por WhatsApp',
+                                    );
+                                  }
                                 } catch (err) {
                                   if (mounted) aviso(context, err);
                                 }

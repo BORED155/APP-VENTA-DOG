@@ -211,3 +211,18 @@ alter table public.pedido_items drop constraint pedido_items_producto_id_fkey;
 alter table public.pedido_items add constraint pedido_items_producto_id_fkey
   foreign key (producto_id) references public.productos on delete set null;
 alter table public.pedido_items add column id bigint generated always as identity primary key;
+
+-- 2026-11-14: el cliente anota el número de comprobante de su transferencia (el admin lo ve en el pedido).
+alter table public.pedidos add column comprobante text;
+create function public.poner_comprobante(p_id bigint, p_numero text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if coalesce(trim(p_numero), '') = '' or length(p_numero) > 60 then
+    raise exception 'Escribe un número de comprobante válido';
+  end if;
+  update public.pedidos set comprobante = trim(p_numero)
+   where id = p_id and usuario_id = auth.uid() and estado = 'pendiente' and metodo = 'transferencia';
+  if not found then raise exception 'Ese pedido ya no acepta comprobante'; end if;
+end $$;
+revoke execute on function public.poner_comprobante(bigint, text) from public, anon;
+grant execute on function public.poner_comprobante(bigint, text) to authenticated;

@@ -1,7 +1,9 @@
 import 'package:app_venta_dog/carrito.dart';
+import 'package:app_venta_dog/pedidos.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  pruebasWhatsapp();
   test('carrito: suma, respeta stock y quita en cero', () {
     final collar = {'id': 1, 'nombre': 'Collar', 'precio': 7.5, 'stock': 2};
     final hueso = {'id': 2, 'nombre': 'Hueso', 'precio': 3, 'stock': 10};
@@ -17,5 +19,39 @@ void main() {
     ]);
     cambiarCantidad(hueso, -1);
     expect(carrito.value.containsKey(2), false);
+  });
+}
+
+// Fuera de main() no corre: se registra abajo.
+void pruebasWhatsapp() {
+  test('aviso por WhatsApp: número de Ecuador y mensaje por estado', () {
+    expect(numeroWhatsapp('099 123-4567'), '593991234567');
+    expect(numeroWhatsapp('+593 99 123 4567'), '593991234567');
+    final p = {
+      'id': 7,
+      'total': 12.5,
+      'direccion': 'Av. 1, Quito',
+      'perfiles': {'nombre': 'Ana', 'telefono': '0991234567'},
+    };
+    final u = avisoWhatsapp(p, 'pagado')!;
+    expect(u.host, 'wa.me');
+    expect(u.path, '/593991234567');
+    expect(u.queryParameters['text'], contains('pago de tu pedido #7'));
+    expect(
+      avisoWhatsapp(p, 'enviado')!.queryParameters['text'],
+      contains('Av. 1, Quito'),
+    );
+    expect(
+      avisoWhatsapp(p, 'cancelado')!.queryParameters['text'],
+      contains('cancelado'),
+    );
+    expect(avisoWhatsapp(p, 'pendiente'), isNull);
+    expect(
+      avisoWhatsapp({
+        ...p,
+        'perfiles': {'nombre': 'Ana', 'telefono': ''},
+      }, 'pagado'),
+      isNull,
+    );
   });
 }
