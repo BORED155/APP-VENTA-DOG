@@ -301,26 +301,6 @@ class _CatalogoState extends State<Catalogo> {
         )
         .toList();
     return Scaffold(
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: ValueListenableBuilder(
-        valueListenable: carrito,
-        builder: (_, _, _) => unidades() == 0
-            ? const SizedBox.shrink()
-            : FloatingActionButton.extended(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CarritoPantalla()),
-                ).then((_) => cargar()),
-                icon: Badge(
-                  label: Text('${unidades()}'),
-                  child: const Icon(Icons.shopping_bag_outlined),
-                ),
-                label: Text(
-                  'Ver carrito · ${dinero(total())}',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-      ),
       body: RefreshIndicator(
         onRefresh: cargar,
         child: CustomScrollView(
@@ -354,13 +334,58 @@ class _CatalogoState extends State<Catalogo> {
                             ],
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: const BoxDecoration(
-                            gradient: degradado,
-                            shape: BoxShape.circle,
+                        ValueListenableBuilder(
+                          valueListenable: carrito,
+                          builder: (_, _, _) => Material(
+                            color: Colors.transparent,
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                gradient: degradado,
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(30),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CarritoPantalla(),
+                                  ),
+                                ).then((_) => cargar()),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Badge(
+                                        isLabelVisible: unidades() > 0,
+                                        label: Text('${unidades()}'),
+                                        child: Image.asset(
+                                          'assets/perro_bolsa.png',
+                                          width: 30,
+                                          height: 30,
+                                          color: Colors.white,
+                                          semanticLabel: 'Ver carrito',
+                                        ),
+                                      ),
+                                      if (unidades() > 0) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          dinero(total()),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                          child: const Icon(Icons.pets, color: Colors.white),
                         ),
                       ],
                     ),
