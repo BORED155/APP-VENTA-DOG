@@ -75,7 +75,10 @@ class _AdminProductosState extends State<AdminProductos> {
           // 23503 = la base aún no tiene la actualización del 2026-11-14 de schema.sql.
           if (e.code != '23503') rethrow;
           if (mounted) {
-            aviso(context, 'Falta aplicar en Supabase la actualización del 2026-11-14 (schema.sql)');
+            aviso(
+              context,
+              'Falta aplicar en Supabase la actualización del 2026-11-14 (schema.sql)',
+            );
           }
           return;
         }

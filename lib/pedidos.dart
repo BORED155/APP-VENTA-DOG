@@ -92,6 +92,27 @@ Uri? avisoWhatsapp(Map<String, dynamic> p, String estado) {
   return Uri.https('wa.me', '/$numero', {'text': texto});
 }
 
+const meses = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+];
+
+/// "2026-11-14T…" → "Noviembre 2026" (en hora local).
+String mesDe(String creado) {
+  final d = DateTime.parse(creado).toLocal();
+  return '${meses[d.month - 1]} ${d.year}';
+}
+
 const estados = ['pendiente', 'pagado', 'enviado', 'cancelado'];
 const iconoEstado = {
   'pendiente': Icons.schedule,
@@ -163,7 +184,17 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
         if (!s.hasData) return const Center(child: CircularProgressIndicator());
         if (s.data!.isEmpty)
           return vacio(Icons.receipt_long_outlined, 'Todavía no hay pedidos');
-        return ListView(children: [for (final p in s.data!) _pedido(p)]);
+        // Vienen del más nuevo al más viejo: un título cada vez que cambia el mes.
+        String? mesAnterior;
+        return ListView(
+          children: [
+            for (final p in s.data!) ...[
+              if (mesDe(p['creado']) != mesAnterior)
+                _tituloMes(mesAnterior = mesDe(p['creado'])),
+              _pedido(p),
+            ],
+          ],
+        );
       },
     ),
   );
@@ -211,6 +242,15 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
       if (mounted) aviso(context, err);
     }
   }
+
+  Widget _tituloMes(String mes) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+    child: Text(
+      mes,
+      style: Theme.of(context).textTheme.titleMedium
+          ?.copyWith(fontWeight: FontWeight.w900),
+    ),
+  );
 
   Widget _pedido(Map<String, dynamic> p) {
     final fecha = DateTime.parse(p['creado'])
@@ -275,9 +315,12 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              Text(
-                '$fecha${widget.admin ? ' · ${cliente['nombre']} · ${cliente['telefono']}' : ''}',
-              ),
+              Text(fecha),
+              if (widget.admin)
+                Text(
+                  '${cliente['nombre']} · ${cliente['telefono']}'.toUpperCase(),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
             ],
           ),
           childrenPadding: const EdgeInsets.symmetric(
@@ -290,7 +333,9 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
               Text(
                 '${i['cantidad']} × ${i['nombre']} — ${dinero(i['precio'] * i['cantidad'])}',
               ),
-            Text('Entrega: ${p['direccion']}'),
+            Text(
+              'Entrega: ${widget.admin ? '${p['direccion']}'.toUpperCase() : p['direccion']}',
+            ),
             if (p['comprobante'] != null)
               SelectableText(
                 'Comprobante de transferencia: ${p['comprobante']}',

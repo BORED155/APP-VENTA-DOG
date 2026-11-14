@@ -24,6 +24,10 @@ void main() {
 
 // Fuera de main() no corre: se registra abajo.
 void pruebasWhatsapp() {
+  test(
+    'mes del pedido',
+    () => expect(mesDe('2026-11-14T15:00:00Z'), 'Noviembre 2026'),
+  );
   test('aviso por WhatsApp: número de Ecuador y mensaje por estado', () {
     expect(numeroWhatsapp('099 123-4567'), '593991234567');
     expect(numeroWhatsapp('+593 99 123 4567'), '593991234567');
