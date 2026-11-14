@@ -42,3 +42,17 @@ jobs:
         with:
           name: app-${{ matrix.os }}
           path: ${{ matrix.salida }}
+
+  # Al subir una etiqueta v*, publica el APK, el zip de Mac y el de Windows en Releases.
+  publicar:
+    needs: compilar
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { merge-multiple: true }
+      - run: gh release create "$GITHUB_REF_NAME" app-release.apk APP-VENTA-DOG-mac.zip APP-VENTA-DOG-windows.zip --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
