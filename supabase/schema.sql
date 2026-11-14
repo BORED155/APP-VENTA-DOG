@@ -226,3 +226,12 @@ begin
 end $$;
 revoke execute on function public.poner_comprobante(bigint, text) from public, anon;
 grant execute on function public.poner_comprobante(bigint, text) to authenticated;
+
+-- 2026-11-14: estado "entregado" (después de enviado).
+alter table public.pedidos drop constraint pedidos_estado_check;
+alter table public.pedidos add constraint pedidos_estado_check
+  check (estado in ('pendiente', 'pagado', 'enviado', 'entregado', 'cancelado'));
+drop trigger al_pagar on public.pedidos;
+create trigger al_pagar after update of estado on public.pedidos
+  for each row when (old.estado = 'pendiente' and new.estado in ('pagado', 'enviado', 'entregado'))
+  execute function public.descontar_stock();

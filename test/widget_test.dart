@@ -49,6 +49,10 @@ void pruebasWhatsapp() {
       avisoWhatsapp(p, 'cancelado')!.queryParameters['text'],
       contains('cancelado'),
     );
+    expect(
+      avisoWhatsapp(p, 'entregado')!.queryParameters['text'],
+      contains('entregado'),
+    );
     expect(avisoWhatsapp(p, 'pendiente'), isNull);
     expect(
       avisoWhatsapp({

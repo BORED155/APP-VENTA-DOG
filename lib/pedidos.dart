@@ -84,6 +84,8 @@ Uri? avisoWhatsapp(Map<String, dynamic> p, String estado) {
       '$hola Confirmamos el pago de tu pedido #${p['id']} por ${dinero(p['total'])}. Pronto lo enviaremos.',
     'enviado' =>
       '$hola Tu pedido #${p['id']} ya fue enviado a: ${p['direccion']}.',
+    'entregado' =>
+      '$hola Tu pedido #${p['id']} fue entregado. ¡Gracias por tu compra! 🐶',
     'cancelado' =>
       '$hola Tu pedido #${p['id']} fue cancelado. Si tienes dudas, responde a este mensaje.',
     _ => null,
@@ -113,16 +115,18 @@ String mesDe(String creado) {
   return '${meses[d.month - 1]} ${d.year}';
 }
 
-const estados = ['pendiente', 'pagado', 'enviado', 'cancelado'];
+const estados = ['pendiente', 'pagado', 'enviado', 'entregado', 'cancelado'];
 const iconoEstado = {
   'pendiente': Icons.schedule,
   'pagado': Icons.paid_outlined,
   'enviado': Icons.local_shipping_outlined,
+  'entregado': Icons.task_alt,
   'cancelado': Icons.cancel_outlined,
 };
 Color colorEstado(String e, ColorScheme cs) => switch (e) {
   'pagado' => Colors.green.shade700,
   'enviado' => Colors.blue.shade700,
+  'entregado' => Colors.teal.shade800,
   'cancelado' => cs.error,
   _ => Colors.orange.shade800,
 };
