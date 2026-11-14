@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'main.dart';
+import 'respaldo.dart';
 import 'tienda.dart';
 
 /// Pide a la función "pagar" el enlace de PayPhone y lo abre en el navegador
@@ -171,6 +172,44 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
     appBar: AppBar(
       title: Text(widget.admin ? 'Todos los pedidos' : 'Mis pedidos'),
       actions: [
+        if (widget.admin) ...[
+          IconButton(
+            tooltip: 'Exportar pedidos (respaldo)',
+            icon: const Icon(Icons.download),
+            onPressed: () async {
+              try {
+                final todos = await lista;
+                if (mounted) await exportarRespaldo(context, 'pedidos', todos);
+              } catch (e) {
+                if (mounted) aviso(context, e);
+              }
+            },
+          ),
+          IconButton(
+            tooltip: 'Importar pedidos (respaldo)',
+            icon: const Icon(Icons.upload),
+            onPressed: () async {
+              final datos = await elegirRespaldo(context, 'pedidos');
+              if (datos == null) return;
+              try {
+                final r = await sb.rpc(
+                  'importar_pedidos',
+                  params: {'datos': datos},
+                );
+                if (mounted) {
+                  aviso(
+                    context,
+                    '${r['importados']} pedidos importados'
+                    '${r['omitidos'] > 0 ? ' · ${r['omitidos']} omitidos (ya existían o el cliente no está registrado)' : ''}',
+                  );
+                }
+              } catch (e) {
+                if (mounted) aviso(context, e);
+              }
+              _recargar();
+            },
+          ),
+        ],
         IconButton(
           tooltip: 'Actualizar',
           onPressed: _recargar,

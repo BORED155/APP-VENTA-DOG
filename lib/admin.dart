@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'main.dart';
+import 'respaldo.dart';
 import 'tienda.dart';
 
 /// Solo visible para cuentas con es_admin; la base rechaza igual a cualquier otro.
@@ -103,7 +104,41 @@ class _AdminProductosState extends State<AdminProductos> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Administrar productos')),
+    appBar: AppBar(
+      title: const Text('Administrar productos'),
+      actions: [
+        IconButton(
+          tooltip: 'Exportar productos (respaldo)',
+          icon: const Icon(Icons.download),
+          onPressed: () async {
+            try {
+              final todos = await sb.from('productos').select().order('id');
+              if (mounted) await exportarRespaldo(context, 'productos', todos);
+            } catch (e) {
+              if (mounted) aviso(context, e);
+            }
+          },
+        ),
+        IconButton(
+          tooltip: 'Importar productos (respaldo)',
+          icon: const Icon(Icons.upload),
+          onPressed: () async {
+            final datos = await elegirRespaldo(context, 'productos');
+            if (datos == null) return;
+            try {
+              final n = await sb.rpc(
+                'importar_productos',
+                params: {'datos': datos},
+              );
+              if (mounted) aviso(context, '$n productos importados');
+            } catch (e) {
+              if (mounted) aviso(context, e);
+            }
+            setState(() => lista = _cargar());
+          },
+        ),
+      ],
+    ),
     floatingActionButton: FloatingActionButton.extended(
       onPressed: _editar,
       icon: const Icon(Icons.add),

@@ -1,9 +1,11 @@
 import 'package:app_venta_dog/carrito.dart';
+import 'package:app_venta_dog/respaldo.dart';
 import 'package:app_venta_dog/pedidos.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   pruebasWhatsapp();
+  pruebasRespaldo();
   test('carrito: suma, respeta stock y quita en cero', () {
     final collar = {'id': 1, 'nombre': 'Collar', 'precio': 7.5, 'stock': 2};
     final hueso = {'id': 2, 'nombre': 'Hueso', 'precio': 3, 'stock': 10};
@@ -60,6 +62,23 @@ void pruebasWhatsapp() {
         'perfiles': {'nombre': 'Ana', 'telefono': ''},
       }, 'pagado'),
       isNull,
+    );
+  });
+}
+
+void pruebasRespaldo() {
+  test('respaldo: ida y vuelta, y rechaza otro tipo', () {
+    final datos = [
+      {'id': 1, 'nombre': 'Collar ñandú', 'precio': 7.5},
+    ];
+    expect(leerRespaldo(armarRespaldo('productos', datos), 'productos'), datos);
+    expect(
+      () => leerRespaldo(armarRespaldo('pedidos', []), 'productos'),
+      throwsFormatException,
+    );
+    expect(
+      () => leerRespaldo('no es json', 'productos'),
+      throwsFormatException,
     );
   });
 }

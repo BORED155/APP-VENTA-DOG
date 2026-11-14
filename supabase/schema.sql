@@ -235,3 +235,60 @@ drop trigger al_pagar on public.pedidos;
 create trigger al_pagar after update of estado on public.pedidos
   for each row when (old.estado = 'pendiente' and new.estado in ('pagado', 'enviado', 'entregado'))
   execute function public.descontar_stock();
+
+-- 2026-11-14: importar respaldos (.json exportados desde la app). Solo el admin.
+-- Productos: mismo id → se reemplaza; id nuevo o sin id → se agrega. Se conservan los ids para que
+-- los pedidos importados sigan enlazados a sus productos.
+create or replace function public.importar_productos(datos jsonb) returns int
+language plpgsql security definer set search_path = '' as $$
+declare n int;
+begin
+  if not public.es_admin() then raise exception 'Solo el administrador puede importar'; end if;
+  insert into public.productos (id, nombre, descripcion, precio, stock, imagen_url, activo, categoria, creado)
+  overriding system value
+  select coalesce(x.id, nextval(pg_get_serial_sequence('public.productos', 'id'))),
+         x.nombre, coalesce(x.descripcion, ''), x.precio, coalesce(x.stock, 0), x.imagen_url,
+         coalesce(x.activo, true), coalesce(x.categoria, 'Otros'), coalesce(x.creado, now())
+    from jsonb_to_recordset(datos) as x(id bigint, nombre text, descripcion text, precio numeric,
+         stock int, imagen_url text, activo boolean, categoria text, creado timestamptz)
+  on conflict (id) do update set nombre = excluded.nombre, descripcion = excluded.descripcion,
+    precio = excluded.precio, stock = excluded.stock, imagen_url = excluded.imagen_url,
+    activo = excluded.activo, categoria = excluded.categoria;
+  get diagnostics n = row_count;
+  perform setval(pg_get_serial_sequence('public.productos', 'id'),
+                 greatest((select max(id) from public.productos), 1));
+  return n;
+end $$;
+revoke execute on function public.importar_productos(jsonb) from public, anon;
+grant execute on function public.importar_productos(jsonb) to authenticated;
+
+-- Pedidos: solo se agregan los que no existen y cuyo cliente sigue registrado. No toca el stock.
+create or replace function public.importar_pedidos(datos jsonb) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare r record; n int := 0; omitidos int := 0;
+begin
+  if not public.es_admin() then raise exception 'Solo el administrador puede importar'; end if;
+  for r in select * from jsonb_to_recordset(datos) as x(id bigint, usuario_id uuid, estado text,
+           total numeric, direccion text, creado timestamptz, metodo text, comprobante text,
+           pedido_items jsonb) loop
+    if exists (select 1 from public.pedidos where id = r.id)
+       or not exists (select 1 from public.perfiles where id = r.usuario_id) then
+      omitidos := omitidos + 1;
+      continue;
+    end if;
+    insert into public.pedidos (id, usuario_id, estado, total, direccion, creado, metodo, comprobante)
+    overriding system value
+    values (r.id, r.usuario_id, r.estado, r.total, r.direccion, coalesce(r.creado, now()),
+            coalesce(r.metodo, 'tarjeta'), r.comprobante);
+    insert into public.pedido_items (pedido_id, producto_id, nombre, precio, cantidad)
+    select r.id, (select id from public.productos where id = i.producto_id), i.nombre, i.precio, i.cantidad
+      from jsonb_to_recordset(coalesce(r.pedido_items, '[]')) as i(producto_id bigint, nombre text,
+           precio numeric, cantidad int);
+    n := n + 1;
+  end loop;
+  perform setval(pg_get_serial_sequence('public.pedidos', 'id'),
+                 greatest((select max(id) from public.pedidos), 1));
+  return jsonb_build_object('importados', n, 'omitidos', omitidos);
+end $$;
+revoke execute on function public.importar_pedidos(jsonb) from public, anon;
+grant execute on function public.importar_pedidos(jsonb) to authenticated;
