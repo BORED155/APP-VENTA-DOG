@@ -43,8 +43,8 @@ Future<void> mostrarTransferencia(BuildContext c, int id, num total) =>
             Text('En el concepto o descripción escribe: Pedido #$id'),
             const SizedBox(height: 8),
             const Text(
-              'Cuando confirmemos el depósito, tu pedido pasará a "pagado" y lo enviaremos. '
-              'Después pulsa "Agregar comprobante" en Pedidos y escribe el número del comprobante.',
+              'Al terminar, pulsa "Agregar comprobante" en Pedidos y escribe el número que te dio el banco. '
+              'Cuando confirmemos el depósito, tu pedido pasará a "pagado" y te avisaremos por WhatsApp.',
             ),
           ],
         ),
