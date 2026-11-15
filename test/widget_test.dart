@@ -47,10 +47,7 @@ void pruebasWhatsapp() {
       avisoWhatsapp(p, 'enviado')!.queryParameters['text'],
       contains('Av. 1, Quito'),
     );
-    expect(
-      avisoWhatsapp(p, 'cancelado')!.queryParameters['text'],
-      contains('cancelado'),
-    );
+    expect(avisoWhatsapp(p, 'cancelado'), isNull);
     expect(
       avisoWhatsapp(p, 'entregado')!.queryParameters['text'],
       contains('entregado'),

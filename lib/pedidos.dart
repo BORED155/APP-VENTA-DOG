@@ -60,7 +60,8 @@ String numeroWhatsapp(String tel) {
   return d.startsWith('0') ? '593${d.substring(1)}' : d;
 }
 
-/// Enlace de WhatsApp con el aviso al cliente, o null si ese estado no avisa o no hay teléfono.
+/// Enlace de WhatsApp con el aviso al cliente, o null si ese estado no avisa (pendiente, cancelado)
+/// o no hay teléfono. Cancelar no avisa: solo devuelve el stock (lo hace la base).
 Uri? avisoWhatsapp(Map<String, dynamic> p, String estado) {
   final cliente = p['perfiles'] ?? {};
   final numero = numeroWhatsapp('${cliente['telefono'] ?? ''}');
@@ -73,8 +74,6 @@ Uri? avisoWhatsapp(Map<String, dynamic> p, String estado) {
       '$hola Tu pedido #${p['id']} ya fue enviado a: ${p['direccion']}.',
     'entregado' =>
       '$hola Tu pedido #${p['id']} fue entregado. ¡Gracias por tu compra! 🐶',
-    'cancelado' =>
-      '$hola Tu pedido #${p['id']} fue cancelado. Si tienes dudas, responde a este mensaje.',
     _ => null,
   };
   if (texto == null || numero.isEmpty) return null;
@@ -485,7 +484,11 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
                                       wa,
                                       mode: LaunchMode.externalApplication,
                                     );
-                                  } else if (e != 'pendiente' && mounted) {
+                                  } else if (![
+                                        'pendiente',
+                                        'cancelado',
+                                      ].contains(e) &&
+                                      mounted) {
                                     aviso(
                                       context,
                                       'El cliente no tiene teléfono: no se pudo avisar por WhatsApp',
