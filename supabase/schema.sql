@@ -296,3 +296,66 @@ grant execute on function public.importar_pedidos(jsonb) to authenticated;
 -- 2026-11-14: se quita el pago con tarjeta. Los pedidos pendientes con tarjeta pasan a transferencia
 -- para que el cliente vea los datos de la cuenta y pueda agregar su comprobante.
 update public.pedidos set metodo = 'transferencia' where estado = 'pendiente' and metodo = 'tarjeta';
+
+-- 2026-11-14: el stock se reserva al CREAR el pedido (no al pagarlo), para no vender lo mismo dos veces.
+-- Regla: todo pedido que no está cancelado tiene su stock descontado.
+--   · cancelar un pedido devuelve el stock · sacarlo de cancelado lo vuelve a descontar.
+-- Los pedidos pendientes que ya existían reservan su stock ahora.
+update public.productos pr set stock = greatest(pr.stock - i.c, 0)
+  from (select it.producto_id, sum(it.cantidad) c
+          from public.pedido_items it join public.pedidos p on p.id = it.pedido_id
+         where p.estado = 'pendiente' group by it.producto_id) i
+ where pr.id = i.producto_id;
+
+drop trigger al_pagar on public.pedidos;
+create or replace function public.ajustar_stock() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare signo int;
+begin
+  if new.estado = 'cancelado' then signo := 1;      -- se cancela: vuelve al stock
+  elsif old.estado = 'cancelado' then signo := -1;  -- se reactiva: se descuenta otra vez
+  else return new;
+  end if;
+  update public.productos pr set stock = greatest(pr.stock + signo * i.c, 0)
+    from (select producto_id, sum(cantidad) c from public.pedido_items
+           where pedido_id = new.id group by producto_id) i
+   where pr.id = i.producto_id;
+  return new;
+end $$;
+create trigger al_cambiar_estado after update of estado on public.pedidos
+  for each row when (old.estado is distinct from new.estado)
+  execute function public.ajustar_stock();
+
+create or replace function public.crear_pedido(items jsonb, p_metodo text default 'tarjeta') returns bigint
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_id bigint; v_total numeric := 0; v_perfil public.perfiles; it record; p public.productos;
+begin
+  if auth.uid() is null then raise exception 'Inicia sesión'; end if;
+  select * into v_perfil from public.perfiles where id = auth.uid();
+  if coalesce(trim(v_perfil.direccion), '') = '' then
+    raise exception 'Completa tu dirección en Mi perfil';
+  end if;
+  if coalesce(jsonb_array_length(items), 0) = 0 then raise exception 'El carrito está vacío'; end if;
+
+  insert into public.pedidos (usuario_id, total, direccion, metodo)
+  values (auth.uid(), 0, concat_ws(', ', v_perfil.direccion, nullif(v_perfil.ciudad, '')), p_metodo)
+  returning id into v_id;
+
+  for it in select (e->>'producto_id')::bigint as pid, (e->>'cantidad')::int as cant
+            from jsonb_array_elements(items) e loop
+    -- for update: dos clientes a la vez no pueden llevarse la última unidad
+    select * into p from public.productos where id = it.pid and activo for update;
+    if not found then raise exception 'Un producto ya no está disponible'; end if;
+    if it.cant is null or it.cant < 1 or p.stock < it.cant then
+      raise exception 'No hay stock suficiente de %', p.nombre;
+    end if;
+    update public.productos set stock = stock - it.cant where id = p.id;
+    insert into public.pedido_items (pedido_id, producto_id, nombre, precio, cantidad)
+    values (v_id, p.id, p.nombre, p.precio, it.cant);
+    v_total := v_total + p.precio * it.cant;
+  end loop;
+
+  update public.pedidos set total = v_total where id = v_id;
+  return v_id;
+end $$;
