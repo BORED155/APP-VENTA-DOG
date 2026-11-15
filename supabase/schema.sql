@@ -359,3 +359,17 @@ begin
   update public.pedidos set total = v_total where id = v_id;
   return v_id;
 end $$;
+
+-- 2026-11-14: el cliente puede cancelar su pedido mientras esté pendiente (el trigger devuelve el stock).
+-- Ya no lo ve en su lista; el admin sí lo sigue viendo como cancelado.
+create or replace function public.cancelar_pedido(p_id bigint) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  update public.pedidos set estado = 'cancelado'
+   where id = p_id and usuario_id = auth.uid() and estado = 'pendiente';
+  if not found then
+    raise exception 'Solo puedes cancelar pedidos pendientes. Si ya pagaste, escríbenos.';
+  end if;
+end $$;
+revoke execute on function public.cancelar_pedido(bigint) from public, anon;
+grant execute on function public.cancelar_pedido(bigint) to authenticated;

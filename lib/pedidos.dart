@@ -128,10 +128,49 @@ class Pedidos extends StatefulWidget {
 class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
   late Future<List<Map<String, dynamic>>> lista = _cargar();
 
-  Future<List<Map<String, dynamic>>> _cargar() => sb
-      .from('pedidos')
-      .select('*, pedido_items(*), perfiles(nombre, telefono)')
-      .order('creado', ascending: false);
+  Future<List<Map<String, dynamic>>> _cargar() {
+    final q = sb
+        .from('pedidos')
+        .select('*, pedido_items(*), perfiles(nombre, telefono)');
+    // El cliente no ve sus pedidos cancelados; el admin los ve todos.
+    return (widget.admin ? q : q.neq('estado', 'cancelado')).order(
+      'creado',
+      ascending: false,
+    );
+  }
+
+  Future<void> _cancelar(Map<String, dynamic> p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('¿Cancelar el pedido #${p['id']}?'),
+        content: const Text(
+          'El pedido se anulará y desaparecerá de tu lista. Esto no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('No'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(c).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Sí, cancelar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await sb.rpc('cancelar_pedido', params: {'p_id': p['id']});
+      if (mounted) aviso(context, 'Pedido #${p['id']} cancelado');
+    } catch (e) {
+      if (mounted) aviso(context, e);
+    }
+    _recargar();
+  }
 
   void _recargar() => setState(() => lista = _cargar());
 
@@ -392,6 +431,15 @@ class _PedidosState extends State<Pedidos> with WidgetsBindingObserver {
                         : 'Cambiar comprobante',
                   ),
                 ),
+              ),
+            if (!widget.admin && p['estado'] == 'pendiente')
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: () => _cancelar(p),
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text('Cancelar pedido'),
               ),
             if (widget.admin)
               Padding(
